@@ -1,0 +1,116 @@
+script.
+  function newPopup(url) {
+    window.open(url,'popUpWindow','height=300,width=400,left=10,top=10,resizable=yes,scrollbars=yes,toolbar=yes,menubar=no,location=no,directories=no,status=yes')
+  }
+
+extend layout
+block content
+  .widget  
+      p
+       form.well(id='veh-find', method='post', action='find-submit')  
+        h2 Find or Register Vehicle
+        P   
+           label Find your vehicle
+           select(id="veh_select", name="veh_select")
+              option(value='', selected='selected', disabled='true') Select Vehicle
+              for item in vehicleList.rows
+                option !{item.id}       
+
+           | &nbsp&nbsp
+           if(sim_triggered=='true')
+            button.b1inv(disabled="disabled") &nbspSubmit&nbsp
+           else
+            button.b1(id='submit-vf1', name='submit-vf1', value='select') &nbspSubmit&nbsp
+        p1 &nbsp
+      form.well1(id='veh-reg', method='post', action='reg-submit')
+        p
+           label or Register your vehicle
+           input(placeholder="Your Name", name="input_ownerName")
+           | &nbsp&nbsp
+           input(placeholder="Vehicle Identification Number", name="input_vin")       
+           | &nbsp&nbsp
+           input(placeholder="Vehicle Number Plate", name="input_numberPlate")
+           | &nbsp&nbsp
+           if(sim_triggered=='true')
+            button.b1inv(disabled="disabled") Register
+           else
+            button.b1 Register   
+      p1 &nbsp
+      h2 Selected Vehicle Details
+      p
+        table
+         tr
+           td
+             | Registered Name 
+           td  
+             input(disabled="disabled" value=selectedVehicle.ownerName)
+           td
+             | VIN
+           td  
+             input(disabled="disabled" value=selectedVehicle.assetID)
+         tr
+           td
+             | Vehicle Number Plate
+           td
+             input(disabled="disabled" value=selectedVehicle.numberPlate)
+           td
+             | Registration Date
+           td
+             input(disabled="disabled" value=selectedVehicle.createDate)       
+      p &nbsp
+      p &nbsp
+      h2 Start Simulation
+      form.well1(id='veh-sim', method='post', action='sim-submit')
+       p
+        label Last Event Date
+        input(disabled="disabled" value=selectedVehicle.lastEventDate)
+        | &nbsp&nbsp
+        if(sim_triggered=='true')
+         button.b2inv(disabled="disabled") Drive Well Today
+        else
+         button.b2(id='submit-sim1', name='submit_sim', value='good') Drive Well Today
+        | &nbsp&nbsp
+        if(sim_triggered=='true')
+         button.b2inv(disabled="disabled") Drive Badly Today
+        else         
+         button.b2(id='submit-sim2', name='submit_sim', value='bad') Drive Badly Today 
+       p1 &nbsp
+      h2 Simulation Status
+      p
+        | To be started .....
+      p1 &nbsp
+      h2 Your Driving Rating
+      p
+      table
+        tr
+          td
+            | Your Driving Rating
+          td
+            input(disabled="disabled" value="AAA")
+          td
+            | Your Insurer Rating
+          td
+            input(disabled="disabled" value="AAA")
+      p &nbsp
+      h2
+        | Click 
+        a(href="history-submit" onclick="window.open(this.href, 'popUpWindow', 'height=400,width=500,left=100,top=100,resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,directories=no,status=yes');return false;") here 
+        | to view your driving history       
+  
+block sidebar
+  .widget
+    h1 Instructions
+    p
+      | This website is developed to showcase an integration between
+      | IBM Blockchain, IBM Driver Insight Service and IBM Watson IOT Platform.
+    p
+      | Please use options from main menu to register a vehicle(asset) or select an already registered vehicle.
+    P  
+      | 'Drive Well Today' and 'Drive Badly Today' buttons could be used to send 
+      | simulated positive or negative driving data to driver insight service where the data will be analyzed.
+    P  
+      | Driver Insight Service will generate driving events which will be fed into IBM Watson IOT Platform.
+      | IOT Platform will push the driving events to integrated Blockchain where corresponding chaincodes
+      | will be executed and vehicle(asset) status will be updated.
+    P 
+      | Users will be able to see the updated driving rating based on the status received from Blockchain.
