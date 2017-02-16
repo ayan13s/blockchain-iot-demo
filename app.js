@@ -100,11 +100,14 @@ db.list({include_docs:true}, function (err, data) {
 
 //IOTF credentials Start
 //***********************************************
-/*
+
 var carprobesamplejsonfilename = 'carprobesample.json';
 
 var fs = require('fs');
 var path = require('path');
+
+var carprobesampledata = JSON.parse(fs.readFileSync(carprobesamplejsonfilename, 'utf8'));
+/*
 //var sleep = require('sleep');
 var ibmiotfclient = require('ibmiotf');
 
@@ -175,8 +178,10 @@ app.post('/find-submit', function(req1, res1) {
 	
 	// Don't do anything if "Select Vehicle" is selected from the dropdown
 	if (selected_vehicle == '' || selected_vehicle == 'undefined' || selected_vehicle == null)
-		res1.render('index', { title : 'Home', moment: moment, vehicleList : db_vehicle_list});
-	
+	{
+		res1.render('index', { title : 'Home', selectedVehicle : selectedVehicle, moment: moment, vehicleList : db_vehicle_list})
+		return;
+	}
 	// Fetch the vin from cloudant document for selected vehicle
 	for (i = 0; db_vehicle_list.rows.length > i; i ++) {
 	    if (db_vehicle_list.rows[i].id == selected_vehicle)
@@ -278,7 +283,45 @@ app.post('/sim-submit', function(req5, res5) {
 });
 
 app.get('/history-submit', function (req, res) {
-	  res.render('history');
+	
+	// Prepare the rest body for readAsset
+	if (selectedVehicle.assetID == '' || selectedVehicle.assetID == 'undefined' || selectedVehicle.assetID == null)
+	{
+	  res.render('history', {title : 'Home', vehicleHistory : ''});
+	  return;
+	}
+	queryBody.method = 'query';
+	queryBody.params.ctorMsg.function = 'readAssetHistory';
+	queryBody.params.ctorMsg.args = [ "{\"assetID\":\""+selectedVehicle.assetID+"\"}"];
+	
+	console.log('Options - ' + JSON.stringify(options));
+	console.log('queryBody - ' + JSON.stringify(queryBody));
+	
+	var raw_str;
+	
+	// Call blockchain readAsset function using rest api
+	https.request(options, function(res2) {
+		  console.log('STATUS: ' + res2.statusCode);
+		  console.log('HEADERS: ' + JSON.stringify(res2.headers));
+		  res2.setEncoding('utf8');
+		  res2.on('data', function (chunk) {
+		    console.log('BODY: ' + chunk);
+		    chunk = chunk.replace("[","");
+		    chunk = chunk.replace("]","");		    
+		    var json_str = JSON.parse('' + chunk + '');
+		    var json_msg = JSON.parse('' + json_str.result.message + '');
+		    console.log(JSON.stringify(json_msg,null,2));
+	    
+		    var totalcount = carprobesampledata.length;
+		    
+		    var markers = "";
+		    for(var i = 0; i < totalcount; i++) {
+		    	markers = markers + "&markers="+carprobesampledata[i].latitude+","+carprobesampledata[i].longitude;
+		    }
+		    console.log(markers);
+			res.render('history', {title : 'Home', markers: markers, vehicleHistory : JSON.stringify(json_msg,null,2)});
+		  });
+		}).end(JSON.stringify(queryBody));
 	})
 
 app.get('/', function (req, res) {

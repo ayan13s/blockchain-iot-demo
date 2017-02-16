@@ -152,6 +152,16 @@ header {
   border-radius: 2px 2px 0px 0px;
   margin-bottom: 10px;
 }
+h3 {
+  font-family: 'Quicksand';
+  margin: 13px 10px 14px 24px;
+  padding-bottom: 10px;
+  border-bottom: 1px dotted #ddd;
+  -webkit-border-radius: 2px 2px 0px 0px;
+  border-radius: 2px 2px 0px 0px;
+  margin-bottom: 10px;
+  text-align: center;
+}
 p {
   margin-left: 15px;
   margin-right: 15px;
