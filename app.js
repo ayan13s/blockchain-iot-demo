@@ -6,6 +6,7 @@ var express = require('express')
 var app = express()
 http = require('http')
 https = require('https')
+request = require('request')
 app.set('views', __dirname + '/views')
 app.set('view engine', 'jade')
 app.use(express.logger('dev'))
@@ -24,6 +25,9 @@ function resetSelectedVehicle() {
 			numberPlate : "",
 			lastEventDate : "",
 			lastEvent : "",
+			sim_status_id : "0",
+			sim_status_desc : "To be started",
+			job_id : "",
 			headers : {'Content-Type':'application/json'},
 		};
 }	
@@ -98,6 +102,20 @@ db.list({include_docs:true}, function (err, data) {
 // ***********************************************
 // Cloudant credentials End
 
+//Driver analysis credentials Start
+//***********************************************
+
+var driver_url = "https://automotive.internetofthings.ibmcloud.com";
+var driver_path = "/driverinsights/jobcontrol/job?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d";
+var driver_uid = "auE8ypsg";
+var driver_pwd = "ujXyi!f6LsHeds";
+var auth = 'Basic ' + new Buffer(driver_uid + ':' + driver_pwd).toString('base64');
+//var auth = 'auE8ypsg:ujXyi!f6LsHeds';
+
+
+//***********************************************
+//Driver analysis credentials End
+
 //IOTF credentials Start
 //***********************************************
 
@@ -107,7 +125,7 @@ var fs = require('fs');
 var path = require('path');
 
 var carprobesampledata = JSON.parse(fs.readFileSync(carprobesamplejsonfilename, 'utf8'));
-/*
+
 //var sleep = require('sleep');
 var ibmiotfclient = require('ibmiotf');
 
@@ -130,7 +148,7 @@ deviceClient.log.setLevel('trace');
 deviceClient.on('connect', function () {
         iotDeviceConnectionStatus = true;
         console.log("Device is connected.");
-        sendCarOnboardRawDataToIoT('12345', '2017-02-01', 'good');
+        //sendCarOnboardRawDataToIoT('12345', '2017-02-01', 'good');
     });
 
 deviceClient.connect();
@@ -152,27 +170,33 @@ function sendCarOnboardRawDataToIoT(assetid, drivedate, goodorbad) {
     var totalcount = carprobesampledata.length / delay;
 
     var datatopublish = JSON.parse('{ "d": "" }');
+
+    var driveTimestamp = new Date().toISOString();
     
     for(var i = 0; i < totalcount; i++) {
         processingStatus = "Capturing car data "+(i+1)+"/"+totalcount;
         console.log(processingStatus);
         datatopublish.d = carprobesampledata[i];
-        var driveTimestamp = new Date().toISOString();
+
         // Concoct a timestamp taking drive date and current time of the server
         datatopublish.d.timestamp = drivedate + 'T' + driveTimestamp.substr(10,driveTimestamp.length);
-        datatopublish.d.trip_id = drivedate;
+        datatopublish.d.trip_id = assetid+ '_' + drivedate;
         console.log(JSON.stringify(datatopublish));
         //publishing event using the default quality of service
         deviceClient.publish("status", "json", JSON.stringify(datatopublish));
-        sleep.sleep(delay);
+        setTimeout(function() {
+            
+        }, delay);
+        //sleep.sleep(delay);
     }
     return;
 }
-*/
+
 //***********************************************
 //IOTF credentials End
 
 app.post('/find-submit', function(req1, res1) {
+	resetSelectedVehicle();
 	var selected_vehicle = req1.body.veh_select;
 	var selected_vin;
 	
@@ -223,6 +247,7 @@ app.post('/find-submit', function(req1, res1) {
 
 app.post('/reg-submit', function(req3, res3) {
 
+	resetSelectedVehicle();
 	var input_ownerName = req3.body.input_ownerName;
 	var input_vin = req3.body.input_vin;
 	var input_numberPlate = req3.body.input_numberPlate;
@@ -279,7 +304,105 @@ app.post('/reg-submit', function(req3, res3) {
 
 app.post('/sim-submit', function(req5, res5) {
 	console.log("simulation trigger -" + req5.body.submit_sim);
-	res5.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
+	var new_event_date = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
+	selectedVehicle.sim_status_id = "1";
+	selectedVehicle.sim_status_desc = "Sending simulation data to IOT platform...";
+    sendCarOnboardRawDataToIoT(selectedVehicle.assetID, new_event_date, req5.body.submit_sim);
+    res5.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
+});
+
+app.get('/sim-submit', function(req7, res7) {
+	
+	var path_str = "";
+	var driver_path_post = "";
+	if (selectedVehicle.sim_status_id=="1")
+	{
+		var new_event_date = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
+		console.log(new_event_date);
+		path_str = "&from=" + new_event_date + "&to=" + new_event_date;
+		driver_path_post = driver_url + driver_path + path_str;
+	    request(
+	        {
+	            url : driver_path_post,
+	            method : 'POST',
+	            headers : {
+	                "Authorization" : auth,
+	                "content-Type" : 'application/x-www-form-urlencoded'
+	            }
+	        },
+	        function (error, response, body) {
+	        	var jsonbody = JSON.parse(body);
+	        	selectedVehicle.job_id = jsonbody.job_id;
+	        	selectedVehicle.sim_status_id = "2";
+	        	selectedVehicle.sim_status_desc = "Driver analysis in progress. This might take couple of minutes. Job id = " + jsonbody.job_id;
+		        res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
+		});
+	
+	} else if (selectedVehicle.sim_status_id=="2")
+	{
+		path_str = "&job_id=" + selectedVehicle.job_id;
+		driver_path_post = driver_url + driver_path + path_str;
+	    request(
+	        {
+	            url : driver_path_post,
+	            method : 'GET',
+	            headers : {
+	                "Authorization" : auth,
+	                "content-Type" : 'application/x-www-form-urlencoded'
+	            }
+	        },
+	        function (error, response, body) {
+	        	var jbody_1 = JSON.parse(body);
+	        	console.log(jbody_1);
+	        	var sim_stat = jbody_1["job_status"];
+	        	console.log("job status - " + sim_stat);
+	        	if(sim_stat=="SUCCEEDED")
+	        	{
+	            	selectedVehicle.sim_status_id = "3";
+		        	selectedVehicle.sim_status_desc = "Driver analysis is complete.. Fetching results...";
+	        	}	
+	        		
+		        res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
+		});
+	} else if (selectedVehicle.sim_status_id=="3")
+	{
+		path_str = "&job_id=" + selectedVehicle.job_id;
+		driver_path_post = "https://automotive.internetofthings.ibmcloud.com/driverinsights/drbresult/tripSummaryList?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d" + path_str;
+	    request(
+	        {
+	            url : driver_path_post,
+	            method : 'GET',
+	            headers : {
+	                "Authorization" : auth,
+	                "content-Type" : 'application/x-www-form-urlencoded'
+	            }
+	        },
+	        function (error, response, body) {
+	        	console.log(JSON.stringify(error));
+	        	console.log(JSON.stringify(response));
+	        	var jbody_1 = JSON.parse(body);
+	        	console.log(jbody_1);
+	    		driver_path_post = "https://automotive.internetofthings.ibmcloud.com/driverinsights/drbresult/trip?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d&trip_uuid=d750fe6f-b28a-498a-a7b1-06c9b98b4014";
+	    	    request(
+	    	        {
+	    	            url : driver_path_post,
+	    	            method : 'GET',
+	    	            headers : {
+	    	                "Authorization" : auth,
+	    	                "content-Type" : 'application/x-www-form-urlencoded'
+	    	            }
+	    	        },
+	    	        function (error1, response1, body1) {
+	    	        	console.log(JSON.stringify(error1));
+	    	        	console.log(JSON.stringify(response1));
+	    	        	var jbody_1 = JSON.parse(body1);
+	    	        	console.log(jbody_1);
+	    	        	selectedVehicle.sim_status_id = "4";
+	    	        	selectedVehicle.sim_status_desc = "Received trip details...";
+	    	        	res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
+	    		});
+		});
+	} 
 });
 
 app.get('/history-submit', function (req, res) {
@@ -325,7 +448,8 @@ app.get('/history-submit', function (req, res) {
 	})
 
 app.get('/', function (req, res) {
-	  res.render('index', { title : 'Home', selectedVehicle : selectedVehicle, moment: moment, vehicleList : db_vehicle_list})
+		resetSelectedVehicle();
+		res.render('index', { title : 'Home', selectedVehicle : selectedVehicle, moment: moment, vehicleList : db_vehicle_list})
 	})
 
 app.listen(8080);

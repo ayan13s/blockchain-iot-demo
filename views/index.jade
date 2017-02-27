@@ -1,5 +1,10 @@
 extend layout
 block content
+  script(type="text/javascript"). 
+    function autoRefresh()
+    {
+    window.location = window.location.href;
+    }
   .widget  
       p
        form.well(id='veh-find', method='post', action='find-submit')  
@@ -70,22 +75,27 @@ block content
         else         
          button.b2(id='submit-sim2', name='submit_sim', value='bad') Drive Badly Today 
        p1 &nbsp
-      h2 Simulation Status
-      p
-        | To be started .....
-      p1 &nbsp
-      h2 Your Driving Rating
-      p
-      table
-        tr
-          td
-            | Your Driving Rating
-          td
-            input(disabled="disabled" value="AAA")
-          td
-            | Your Insurer Rating
-          td
-            input(disabled="disabled" value="AAA")
+      form.well1(id='sim-status', method='post', action='sim-status-submit')      
+        if(sim_triggered=='true')
+         script(type="text/javascript"). 
+          setInterval('autoRefresh()', 5000);
+        h2 Simulation Status
+        p
+          | #{selectedVehicle.sim_status_desc}
+        p1 &nbsp
+        h2 Your Driving Rating
+        p
+        table
+          tr
+            td
+              | Your Driving Rating
+            td
+              input(disabled="disabled" value="AAA")
+            td
+              | Your Insurer Rating
+            td
+              input(disabled="disabled" value="AAA")
+       
       p &nbsp
       h2
         | Click 
