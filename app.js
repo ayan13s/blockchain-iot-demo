@@ -139,26 +139,22 @@ var iotfdeviceconfig = {
 	};
 
 var iotDeviceConnectionStatus = false;
+var iotDataSent = false;
 var processingStatus = "";
 
 var deviceClient = new ibmiotfclient.IotfDevice(iotfdeviceconfig);
 
 deviceClient.log.setLevel('trace');
 
-deviceClient.on('connect', function () {
-        iotDeviceConnectionStatus = true;
-        console.log("Device is connected.");
-        //sendCarOnboardRawDataToIoT('12345', '2017-02-01', 'good');
-    });
-
-deviceClient.connect();
-
 function sendCarOnboardRawDataToIoT(assetid, drivedate, goodorbad) {
     
-    if(! iotDeviceConnectionStatus) {
-        console.log("Device is not connected.");
-        return;
-    }
+	if(iotDataSent)
+		return;
+	deviceClient.connect();
+	deviceClient.on('connect', function () {
+    iotDeviceConnectionStatus = true;
+    console.log("Device is connected.");
+    //sendCarOnboardRawDataToIoT('12345', '2017-02-01', 'good');
     
     const GOOD_DELAY = 3; // seconds
     const BAD_DELAY = 1;  // seconds
@@ -171,25 +167,34 @@ function sendCarOnboardRawDataToIoT(assetid, drivedate, goodorbad) {
 
     var datatopublish = JSON.parse('{ "d": "" }');
 
-    var driveTimestamp = new Date().toISOString();
-    
+     
     for(var i = 0; i < totalcount; i++) {
-        processingStatus = "Capturing car data "+(i+1)+"/"+totalcount;
+    	var driveTimestamp = new Date().toISOString();
+    	processingStatus = "Capturing car data "+(i+1)+"/"+totalcount;
         console.log(processingStatus);
         datatopublish.d = carprobesampledata[i];
 
-        // Concoct a timestamp taking drive date and current time of the server
-        datatopublish.d.timestamp = drivedate + 'T' + driveTimestamp.substr(10,driveTimestamp.length);
+        // Add a timestamp taking drive date and current time of the server
+        datatopublish.d.timestamp = drivedate + driveTimestamp.substr(10,driveTimestamp.length);
         datatopublish.d.trip_id = assetid+ '_' + drivedate;
         console.log(JSON.stringify(datatopublish));
         //publishing event using the default quality of service
         deviceClient.publish("status", "json", JSON.stringify(datatopublish));
-        setTimeout(function() {
-            
-        }, delay);
-        //sleep.sleep(delay);
+        sleep(delay*1000);
+        function sleep(milliseconds) {
+      	  var start = new Date().getTime();
+      	  for (var i = 0; i < 1e7; i++) {
+      	    if ((new Date().getTime() - start) > milliseconds){
+      	      break;
+      	    }
+      	  }
+      	}
     }
-    return;
+    console.log("End of IOT data sending...");
+    iotDataSent = true;
+    deviceClient.disconnect();
+	selectedVehicle.sim_status_id = "1";
+    });
 }
 
 //***********************************************
@@ -305,7 +310,6 @@ app.post('/reg-submit', function(req3, res3) {
 app.post('/sim-submit', function(req5, res5) {
 	console.log("simulation trigger -" + req5.body.submit_sim);
 	var new_event_date = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
-	selectedVehicle.sim_status_id = "1";
 	selectedVehicle.sim_status_desc = "Sending simulation data to IOT platform...";
     sendCarOnboardRawDataToIoT(selectedVehicle.assetID, new_event_date, req5.body.submit_sim);
     res5.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
@@ -317,9 +321,15 @@ app.get('/sim-submit', function(req7, res7) {
 	var driver_path_post = "";
 	if (selectedVehicle.sim_status_id=="1")
 	{
-		var new_event_date = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
-		console.log(new_event_date);
-		path_str = "&from=" + new_event_date + "&to=" + new_event_date;
+		if(!iotDataSent)
+			return;
+		else
+			iotDataSent = false;
+		console.log("Initiating job....");
+		var new_event_date_from = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
+		var new_event_date_to = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(2, 'days').format('YYYY-MM-DD');
+		path_str = "&from=" + new_event_date_from + "&to=" + new_event_date_to;
+		console.log(path_str);
 		driver_path_post = driver_url + driver_path + path_str;
 	    request(
 	        {
@@ -367,7 +377,7 @@ app.get('/sim-submit', function(req7, res7) {
 	} else if (selectedVehicle.sim_status_id=="3")
 	{
 		path_str = "&job_id=" + selectedVehicle.job_id;
-		driver_path_post = "https://automotive.internetofthings.ibmcloud.com/driverinsights/drbresult/tripSummaryList?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d" + path_str;
+		driver_path_post = "https://automotive.internetofthings.ibmcloud.com/driverinsights/drbresult/tripSummaryList?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d";
 	    request(
 	        {
 	            url : driver_path_post,
