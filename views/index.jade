@@ -88,19 +88,22 @@ block content
         table
           tr
             td
-              | Your Driving Rating
-            td
-              input(disabled="disabled" value=selectedVehicle.driverRating)
-            td
               | Your Insurer Rating
             td
               input(disabled="disabled" value=selectedVehicle.insurerRating)
+            td
+              | Last update - #{selectedVehicle.driverRating}  
+            td
+              if(selectedVehicle.trend=='up')
+                img(src="/images/up.png")
+              else if(selectedVehicle.trend=='down')
+                img(src="/images/down.png")
        
       p &nbsp
       h2
         | Click 
-        a(href="history-submit" onclick="window.open(this.href, 'popUpWindow', 'height=425,width=920,left=100,top=100,resizable=no,scrollbars=no,toolbar=no,menubar=no,location=no,directories=no,status=yes');return false;") here 
-        | to view your driving history       
+        a(href="/history-submit" onclick="window.open(this.href, 'popUpWindow', 'height=600,width=500,left=200,top=100,resizable=no,scrollbars=no,toolbar=no,menubar=no,location=no,directories=no,status=yes');return false;") here 
+        | to view your driving history     
   
 block sidebar
   .widget

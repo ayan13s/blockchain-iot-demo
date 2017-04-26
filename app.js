@@ -27,13 +27,33 @@ function resetSelectedVehicle() {
 			numberPlate : "",
 			lastEventDate : "",
 			lastEvent : "",
+			lastEventHistory : "",
+			lastTripHistory : "",
 			sim_status_id : "0",
 			sim_status_desc : "To be started",
-			insurerRating : 500,
-			driverRating : 500,
+			insurerRating : "",
+			driverRating : "no change",
+			trend : "",
 			job_id : "",
 			headers : {'Content-Type':'application/json'},
 		};
+	lastVehicleUpdate = {
+			  trip_uuid : "",
+			  trip_id : "",
+			  generated_time : "",
+			  mo_id : "",
+			  driver_id : "",
+			  start_altitude : "",
+			  start_latitude : "",
+			  start_longitude : "",
+			  start_time : "",
+			  end_altitude : "",
+			  end_latitude : "",
+			  end_longitude : "",
+			  end_time : "",
+			  past_rating : "",
+			  new_rating : ""
+			};
 }	
 // Blockchain credentials Start
 // ***********************************************
@@ -160,43 +180,54 @@ var carprobesampledata = JSON.parse(fs.readFileSync(carprobesamplejsonfilename, 
 //IOTF credentials End
 
 var goodorbad = "";
-function sendCarOnboardRawDataToIoT(assetid, drivedate) {
+var totalcount = 0;
+var delay = 0;
+var drivedate = "";
+
+function sendCarOnboardRawDataToIoT(assetid) {
 
     const GOOD_DELAY = 3; // seconds
     const BAD_DELAY = 1;  // seconds
     console.log('Trigger - ' + goodorbad);
-    var delay = ('good' === goodorbad.toLowerCase()) ? GOOD_DELAY : BAD_DELAY;
-    var totalcount = carprobesampledata.length / delay;
+    delay = ('good' === goodorbad.toLowerCase()) ? GOOD_DELAY : BAD_DELAY;
+    totalcount = carprobesampledata.length / delay;
     console.log('Totalcount - ' + totalcount);
     var datatopublish = JSON.parse('{ "d": "" }');
     console.log("Initializing transfer of simulation data...");
-    var datatopublish = JSON.parse('{ "d": "" }');
+    var datatopublish = JSON.parse('{ "d": "" }');	
+    var waitTill = new Date(new Date().getTime() + 2000);
+    while(waitTill > new Date()){};
+    
     deviceClient.connect();
-
     deviceClient.on('connect', function(){
+
+    if(iotDeviceConnectionStatus == false) {
+    	iotDeviceConnectionStatus = true;	
         var i=0;
         console.log("connected");
         var IOTSent = setInterval(function sendIOTData() {
-        	if (i >= totalcount)
-        	{	
-                deviceClient.disconnect();
-                selectedVehicle.sim_status_id="1";
-                iotDataSent = true;
-                clearInterval(IOTSent);
-                return;
-        	}
-	        datatopublish.d = carprobesampledata[i];
-        	i++;
-	    	processingStatus = "Capturing car data "+i+"/"+totalcount;
-	        console.log(processingStatus);
-	    	var driveTimestamp = new Date().toISOString();
-	        datatopublish.d.timestamp = drivedate + driveTimestamp.substr(10,driveTimestamp.length);
-	        datatopublish.d.trip_id = assetid+moment(new Date()).format('DD');
-	        datatopublish.ts = drivedate + moment(new Date()).format('THH:mm:ss.SSSZZ');
-	        
-            deviceClient.publish('load', 'json', JSON.stringify(datatopublish), 0);
-        },delay*800);
-        console.log("End of on connect..");
+	        	if (i >= totalcount)
+	        	{	
+	                deviceClient.disconnect();
+	                iotDeviceConnectionStatus = false;
+	                selectedVehicle.sim_status_id="1";
+	                iotDataSent = true;
+	                clearInterval(IOTSent);
+	                return;
+	        	}
+		        datatopublish.d = carprobesampledata[i];
+	        	i++;
+		    	processingStatus = "Capturing car data "+i+"/"+totalcount;
+		        console.log(processingStatus);
+		    	var driveTimestamp = new Date().toISOString();
+		        datatopublish.d.timestamp = drivedate + driveTimestamp.substr(10,driveTimestamp.length);
+		        datatopublish.d.trip_id = assetid+moment(new Date()).format('DD');
+		        datatopublish.ts = drivedate + moment(new Date()).format('THH:mm:ss.SSSZZ');
+		        
+	            deviceClient.publish('load', 'json', JSON.stringify(datatopublish), 0);
+	        },delay*800);
+	        console.log("End of on connect..");
+    	}
     });
 }
 
@@ -245,15 +276,24 @@ app.post('/find-submit', function(req1, res1) {
 		    selectedVehicle.ownerName = json_msg.ownerName;
 		    selectedVehicle.numberPlate = json_msg.numberPlate;
 		    selectedVehicle.insurerRating = json_msg.insurerRating;
-		    if(selectedVehicle.insurerRating == "" || selectedVehicle.insurerRating == null || selectedVehicle.insurerRating == "undefined")
-		    	selectedVehicle.insurerRating = 500;
 		    selectedVehicle.driverRating = json_msg.driverRating;
+		    selectedVehicle.lastEvent = json_msg.lastEvent;
+		    selectedVehicle.lastEventHistory = json_msg.lastEventHistory;
+		    selectedVehicle.lastTripHistory = json_msg.lastTripHistory;		    
+		    if(selectedVehicle.insurerRating == "" || selectedVehicle.insurerRating == null || selectedVehicle.insurerRating == "undefined"|| selectedVehicle.insurerRating == "NaN")
+		    	selectedVehicle.insurerRating = 500;
 		    if(selectedVehicle.driverRating == "" || selectedVehicle.driverRating == null || selectedVehicle.driverRating == "undefined")
-		    	selectedVehicle.driverRating = 500;
+		    	selectedVehicle.driverRating = "no change";
+		    if (selectedVehicle.driverRating.indexOf("up") >= 0)
+		    	selectedVehicle.trend = "up";
+		    else if (selectedVehicle.driverRating.indexOf("down") >= 0)
+		    	selectedVehicle.trend = "down";
 		    if(json_msg.lastEventDate == "" || json_msg.lastEventDate == null || json_msg.lastEventDate == "undefined")
 		    	selectedVehicle.lastEventDate = moment(new Date(json_msg.txntimestamp)).format('DD-MMM-YYYY');
 		    else
 		    	selectedVehicle.lastEventDate = moment(new Date(json_msg.lastEventDate)).format('DD-MMM-YYYY');
+		    
+		    console.log(selectedVehicle);
 		    res1.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list });
 		    		
 		  });
@@ -272,7 +312,7 @@ app.post('/reg-submit', function(req3, res3) {
 	// Prepare the rest body for createAsset
 	createBody.method = 'invoke';
 	createBody.params.ctorMsg.function = 'createAsset';
-	createBody.params.ctorMsg.args = ["{\"assetID\":\""+ input_vin +"\",\"ownerName\":\""+ input_ownerName +"\",\"createDate\":\""+ v_createdt +"\",\"numberPlate\":\""+ input_numberPlate +"\",\"insurerRating\":\""+ '500' +"\",\"driverRating\":\""+ '500' +"\"}"];
+	createBody.params.ctorMsg.args = ["{\"assetID\":\""+ input_vin +"\",\"ownerName\":\""+ input_ownerName +"\",\"createDate\":\""+ v_createdt +"\",\"numberPlate\":\""+ input_numberPlate +"\",\"insurerRating\":\""+ 500 +"\",\"driverRating\":\""+ 'no change' +"\"}"];
 	
 	console.log(queryBody.params.ctorMsg.args);
 	
@@ -320,9 +360,11 @@ app.post('/reg-submit', function(req3, res3) {
 
 app.post('/sim-submit', function(req5, res5) {
 	console.log("simulation trigger -" + req5.body.submit_sim);
+	selectedVehicle.sim_status_id="-1";
 	var new_event_date = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
 	selectedVehicle.sim_status_desc = "Sending simulation data to IOT platform...";
 	goodorbad = req5.body.submit_sim;
+	drivedate = new_event_date;
     sendCarOnboardRawDataToIoT(selectedVehicle.assetID, new_event_date);
     res5.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
 });
@@ -359,6 +401,9 @@ app.get('/sim-submit', function(req7, res7) {
 	        	selectedVehicle.sim_status_desc = "Driver analysis in progress. This might take couple of minutes. Job id = " + jsonbody.job_id;
 		        res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
 		});
+	    
+	    var waitTill = new Date(new Date().getTime() + 2000);
+	    while(waitTill > new Date()){};
 	
 	} else if (selectedVehicle.sim_status_id=="2")
 	{
@@ -387,6 +432,9 @@ app.get('/sim-submit', function(req7, res7) {
         		}	        		
 		        res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
 		});
+	    var waitTill = new Date(new Date().getTime() + 2000);
+	    while(waitTill > new Date()){};
+	    
 	} else if (selectedVehicle.sim_status_id=="3")
 	{
 		path_str = "&job_id=" + selectedVehicle.job_id;
@@ -407,16 +455,16 @@ app.get('/sim-submit', function(req7, res7) {
 	        		console.log(body);
     	        	selectedVehicle.sim_status_id = "4";
     	        	selectedVehicle.lastEvent = "Event date updated";
+    	        	selectedVehicle.lastTripHistory = "Dirver Service Didn't return appropriate result";
     	        	selectedVehicle.lastEventDate = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('DD-MMM-YYYY');
     	        	selectedVehicle.sim_status_desc = "Driver analysis job didn't return trip details..";
     	        	res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
 	        	} else {
 	        		console.log(body);
-	        		body = body.replace("[","");
-	        		body = body.replace("]","");		        	
-	        		var jbody_1 = JSON.parse(''+body+'');
-	        		var str_uuid = jbody_1.id.trip_uuid.trim();
-	        		console.log("Trip uuid" + jbody_1.id.trip_uuid);
+	        		var jbody_1 = JSON.parse(body);
+	        		console.log(jbody_1[0]);
+	        		var str_uuid = jbody_1[0].id.trip_uuid.trim();
+	        		console.log("Trip uuid" + str_uuid);
 	        		driver_path_post = "https://automotive.internetofthings.ibmcloud.com/driverinsights/drbresult/trip?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d&trip_uuid=" + str_uuid;
 		    	    request(
 		    	        {
@@ -429,35 +477,71 @@ app.get('/sim-submit', function(req7, res7) {
 		    	        },
 		    	        function (error1, response1, body1) {
 		    	         	var numOfEvents = 0;
+		    	         	var events = [];
 		    	        	var jbody_1 = JSON.parse(body1);
-		    	         	var subTrips = jbody_1.ctx_sub_trips;
+		    	        	lastVehicleUpdate.trip_uuid = str_uuid;
+		    	        	lastVehicleUpdate.trip_id = jbody_1.trip_id;
+		    	        	lastVehicleUpdate.generated_time = jbody_1.generated_time;
+		    	        	lastVehicleUpdate.mo_id = jbody_1.mo_id;
+		    	        	lastVehicleUpdate.driver_id = jbody_1.driver_id;
+		    	        	lastVehicleUpdate.start_altitude = jbody_1.start_altitude;
+		    	        	lastVehicleUpdate.start_latitude = jbody_1.start_latitude;
+		    	        	lastVehicleUpdate.start_longitude = jbody_1.start_longitude;
+		    	        	lastVehicleUpdate.start_time = jbody_1.start_time;
+		    	        	lastVehicleUpdate.end_altitude = jbody_1.end_altitude;
+		    	        	lastVehicleUpdate.end_latitude = jbody_1.end_latitude;
+		    	        	lastVehicleUpdate.end_longitude = jbody_1.end_longitude;
+		    	        	lastVehicleUpdate.end_time = jbody_1.end_time;
+		    	        	lastVehicleUpdate.past_rating = selectedVehicle.insurerRating;
+
+		    	        	var subTrips = jbody_1.ctx_sub_trips;
 		    	         	var d, i;
 		    	         	for (i = 0; i < subTrips.length; i++) {
 		    	         	  d = subTrips[i];
-		    	         	  if(d.driving_behavior_details.length > 0)
+		    	         	  if(d.driving_behavior_details.length > 0){
 		    	         		 numOfEvents = numOfEvents + d.driving_behavior_details.length;
+		    	         		 events.push(JSON.stringify(d.driving_behavior_details));
+		    	         		}
 		    	         	}
+		    	         	console.log(events);
 		    	        	console.log('Total number of events for the trip = ' + numOfEvents);
 		    	        	selectedVehicle.lastEventDate = moment(jbody_1.start_time).format('DD-MMM-YYYY');
 		    				console.log("New last event date - " + selectedVehicle.lastEventDate);
-		    	         	if(numOfEvents > 0)
-		    	         		selectedVehicle.insurerRating = selectedVehicle.insurerRating - numOfEvents;
-		    	         	else
-		    	         		selectedVehicle.insurerRating = selectedVehicle.insurerRating + 3;
-		    	         	selectedVehicle.driverRating = selectedVehicle.insurerRating;
-		    				selectedVehicle.lastEvent = "Rating update";
+		    			    if(selectedVehicle.insurerRating == "" || selectedVehicle.insurerRating == null || selectedVehicle.insurerRating == "undefined"|| selectedVehicle.insurerRating == "NaN")
+		    			    	selectedVehicle.insurerRating = 500;
+		    			    
+		    	         	if(numOfEvents > 0) {
+		    	         		selectedVehicle.insurerRating = parseInt(selectedVehicle.insurerRating) - numOfEvents;
+		    	         		selectedVehicle.driverRating = "down by " + numOfEvents + " points.. ";
+		    	         		selectedVehicle.trend = "down";
+		    	         	}
+		    	         	else {
+		    	         		selectedVehicle.insurerRating = parseInt(selectedVehicle.insurerRating) + 3;
+		    	         		selectedVehicle.driverRating = "up by 3 points.. ";
+		    	         		selectedVehicle.trend = "up";
+		    	         	}
+		    	         	lastVehicleUpdate.new_rating = selectedVehicle.insurerRating;
+		    	         	selectedVehicle.lastEventHistory = numOfEvents + " bad driving events";
+		    				selectedVehicle.lastTripHistory = JSON.stringify(lastVehicleUpdate);
+		    				console.log("lastEventHistory" + selectedVehicle.lastEventHistory);
+		    				console.log("lastTripHistory" + selectedVehicle.lastTripHistory);
 		    	        	selectedVehicle.sim_status_id = "4";
 		    	        	selectedVehicle.sim_status_desc = "Received trip details. Updating Asset history in blockchain";
 		    	        	res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
 		    		});
 	        	}
 		});
+	    var waitTill = new Date(new Date().getTime() + 3000);
+	    while(waitTill > new Date()){};
+	    
 	} else if (selectedVehicle.sim_status_id=="4")
 	{
+		selectedVehicle.sim_status_id="5";
 		// Prepare the rest body for updateAsset
+		console.log("Updating asset in blockchain");
 		updateBody.method = 'invoke';
 		updateBody.params.ctorMsg.function = 'updateAsset';
-		updateBody.params.ctorMsg.args = ["{\"assetID\":\""+ selectedVehicle.assetID +"\",\"lastEventDate\":\""+ selectedVehicle.lastEventDate +"\",\"lastEvent\":\""+ selectedVehicle.lastEvent +"\",\"insurerRating\":\""+ selectedVehicle.insurerRating +"\",\"driverRating\":\""+ selectedVehicle.driverRating +"\"}"];
+		updateBody.params.ctorMsg.args = ["{\"assetID\":\""+ selectedVehicle.assetID +"\",\"lastEventDate\":\""+ selectedVehicle.lastEventDate +"\",\"lastEventHistory\":\""+ selectedVehicle.lastEventHistory +"\",\"lastTripHistory\":\""+ selectedVehicle.lastTripHistory +"\",\"insurerRating\":\""+ selectedVehicle.insurerRating +"\",\"driverRating\":\""+ selectedVehicle.driverRating +"\"}"];
 		     
 		// Call blockchain updateAsset function using rest api
 		https.request(options, function(res4) {
@@ -472,6 +556,12 @@ app.get('/sim-submit', function(req7, res7) {
 	        	res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'false'});
 		      });
 		}).end(JSON.stringify(updateBody));
+	    var waitTill = new Date(new Date().getTime() + 3000);
+	    while(waitTill > new Date()){};
+	}
+	else if (selectedVehicle.sim_status_id=="5")
+	{
+		res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'false'});
 	}
 });
 
@@ -484,7 +574,7 @@ app.get('/history-submit', function (req, res) {
 	  return;
 	}
 	queryBody.method = 'query';
-	queryBody.params.ctorMsg.function = 'readAssetHistory';
+	queryBody.params.ctorMsg.function = 'readAsset';
 	queryBody.params.ctorMsg.args = [ "{\"assetID\":\""+selectedVehicle.assetID+"\"}"];
 	
 	console.log('Options - ' + JSON.stringify(options));
@@ -494,14 +584,20 @@ app.get('/history-submit', function (req, res) {
 	
 	// Call blockchain readAsset function using rest api
 	https.request(options, function(res2) {
-		  console.log('STATUS: ' + res2.statusCode);
-		  console.log('HEADERS: ' + JSON.stringify(res2.headers));
+		  console.log('STATUS: ' + res2);
+		  //console.log('HEADERS: ' + JSON.stringify(res2.headers));
 		  res2.setEncoding('utf8');
 		  res2.on('data', function (chunk) {
 		    console.log('BODY: ' + chunk);
-		    chunk = chunk.replace("[","");
-		    chunk = chunk.replace("]","");		    
-		    var json_str = JSON.parse('' + chunk + '');
+		    raw_str+=chunk;
+		    var json_str = eval('(' + chunk + ')');
+		    var json_msg = eval('(' + json_str.result.message + ')');
+		    console.log("json_msg ******** - " + JSON.stringify(json_msg) );
+		    console.log("json_msg.lastEvent ******** - " + JSON.stringify(json_msg.lastEvent , null, 4));
+		    var json_lastEvent = json_msg.lastEvent.arg.lastTripHistory;
+		    console.log("json_msg.lastEvent ******** - " + JSON.stringify(JSON.parse(json_lastEvent) , null, 4));
+
+		    /*
 		    var json_msg = JSON.parse('' + json_str.result.message + '');
 		    console.log(JSON.stringify(json_msg));
 	    
@@ -512,7 +608,9 @@ app.get('/history-submit', function (req, res) {
 		    	markers = markers + "&markers="+carprobesampledata[i].latitude+","+carprobesampledata[i].longitude;
 		    }
 		    console.log(markers);
-			res.render('history', {title : 'Home', markers: markers, vehicleHistory : JSON.stringify(json_msg,null,2)});
+		    */
+			res.render('history', {title : 'Home', vehicleHistory : json_msg.lastEvent , lastEvent : JSON.parse(json_lastEvent)});
+
 		  });
 		}).end(JSON.stringify(queryBody));
 	})
