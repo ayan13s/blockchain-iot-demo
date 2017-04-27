@@ -124,6 +124,7 @@ var db_vehicle_list;
 
 db.list({include_docs:true}, function (err, data) {
 	  db_vehicle_list = data;
+	  console.log("Number of registered vehicles - " + db_vehicle_list.rows.length);
 	});
 
 // ***********************************************
@@ -428,7 +429,7 @@ app.get('/sim-submit', function(req7, res7) {
 		        	{
 		            	selectedVehicle.sim_status_id = "3";
 			        	selectedVehicle.sim_status_desc = "Driver analysis is complete.. Fetching results...";
-		        	}	
+		        	}
         		}	        		
 		        res7.render('index', { title : 'Home', moment: moment, selectedVehicle : selectedVehicle, vehicleList : db_vehicle_list, sim_triggered : 'true'});
 		});
@@ -437,6 +438,7 @@ app.get('/sim-submit', function(req7, res7) {
 	    
 	} else if (selectedVehicle.sim_status_id=="3")
 	{
+		selectedVehicle.sim_status_id="-1";
 		path_str = "&job_id=" + selectedVehicle.job_id;
 		console.log("Job id - " + path_str);
 		driver_path_post = "https://automotive.internetofthings.ibmcloud.com/driverinsights/drbresult/tripSummaryList?tenant_id=72beca9d-37a9-45c6-b792-dcdcfadcfd5d" + path_str;
@@ -522,7 +524,7 @@ app.get('/sim-submit', function(req7, res7) {
 		    	         	}
 		    	         	lastVehicleUpdate.new_rating = selectedVehicle.insurerRating;
 		    	         	selectedVehicle.lastEventHistory = numOfEvents + " bad driving events";
-		    				selectedVehicle.lastTripHistory = JSON.stringify(lastVehicleUpdate);
+		    				selectedVehicle.lastTripHistory = JSON.stringify(lastVehicleUpdate).replace(/"/g, '\\"');
 		    				console.log("lastEventHistory" + selectedVehicle.lastEventHistory);
 		    				console.log("lastTripHistory" + selectedVehicle.lastTripHistory);
 		    	        	selectedVehicle.sim_status_id = "4";
@@ -616,6 +618,11 @@ app.get('/history-submit', function (req, res) {
 	})
 
 app.get('/', function (req, res) {
+		resetSelectedVehicle();
+		res.render('index', { title : 'Home', selectedVehicle : selectedVehicle, moment: moment, vehicleList : db_vehicle_list})
+	})
+	
+app.get('/start', function (req, res) {
 		resetSelectedVehicle();
 		res.render('index', { title : 'Home', selectedVehicle : selectedVehicle, moment: moment, vehicleList : db_vehicle_list})
 	})
