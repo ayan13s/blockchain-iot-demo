@@ -381,9 +381,8 @@ app.get('/sim-submit', function(req7, res7) {
 		else
 			iotDataSent = false;
 		console.log("Initiating job....");
-		var new_event_date_from = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
-		var new_event_date_to = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
-		path_str = "&from=" + new_event_date_from + "&to=" + new_event_date_to;
+		var new_event_date = moment(selectedVehicle.lastEventDate, 'DD-MMM-YYYY').add(1, 'days').format('YYYY-MM-DD');
+		path_str = "&from=" + new_event_date + "&to=" + new_event_date;
 		console.log(path_str);
 		driver_path_post = driver_url + driver_path + path_str;
 	    request(
