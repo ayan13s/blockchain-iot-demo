@@ -1,5 +1,5 @@
 {
-	  "name": "Blockchain",
+	  "name": "IOTDeviceMgmt",
 	  "version": "0.0.1",
 	  "private": true,
 	  "scripts": {
@@ -10,6 +10,7 @@
     "jade": "*",
     "moment": "*",
     "cloudant": "*",
-    "date-format": "*"
+    "date-format": "*",
+    "ibmiotf": "*"
   }
 }
