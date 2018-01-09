@@ -2,7 +2,7 @@ declare function moment(inp?: moment.MomentInput, format?: moment.MomentFormatSp
 declare function moment(inp?: moment.MomentInput, format?: moment.MomentFormatSpecification, language?: string, strict?: boolean): moment.Moment;
 
 declare namespace moment {
-  type RelativeTimeKey = 's' | 'ss' | 'm' | 'mm' | 'h' | 'hh' | 'd' | 'dd' | 'M' | 'MM' | 'y' | 'yy';
+  type RelativeTimeKey = 's' | 'm' | 'mm' | 'h' | 'hh' | 'd' | 'dd' | 'M' | 'MM' | 'y' | 'yy';
   type CalendarKey = 'sameDay' | 'nextDay' | 'lastDay' | 'nextWeek' | 'lastWeek' | 'sameElse' | string;
   type LongDateFormatKey = 'LTS' | 'LT' | 'L' | 'LL' | 'LLL' | 'LLLL' | 'lts' | 'lt' | 'l' | 'll' | 'lll' | 'llll';
 
@@ -58,7 +58,7 @@ declare namespace moment {
     doy: number;
   }
 
-  type CalendarSpecVal = string | ((m?: MomentInput, now?: Moment) => string);
+  type CalendarSpecVal = string | ((m?: Moment, now?: Moment) => string);
   interface CalendarSpec {
     sameDay?: CalendarSpecVal;
     nextDay?: CalendarSpecVal;
@@ -82,7 +82,6 @@ declare namespace moment {
     future: RelativeTimeFuturePastVal;
     past: RelativeTimeFuturePastVal;
     s: RelativeTimeSpecVal;
-    ss: RelativeTimeSpecVal;
     m: RelativeTimeSpecVal;
     mm: RelativeTimeSpecVal;
     h: RelativeTimeSpecVal;
@@ -155,8 +154,6 @@ declare namespace moment {
   }
 
   interface Duration {
-    clone(): Duration;
-
     humanize(withSuffix?: boolean): string;
 
     abs(): Duration;
@@ -216,7 +213,6 @@ declare namespace moment {
     future: any;
     past: any;
     s: any;
-    ss: any;
     m: any;
     mm: any;
     h: any;
@@ -352,10 +348,6 @@ declare namespace moment {
     quarters?: number;
     quarter?: number;
     Q?: number;
-
-    weeks?: number;
-    week?: number;
-    w?: number;
   }
 
   interface MomentSetObject extends MomentInputObject {
@@ -400,17 +392,17 @@ declare namespace moment {
   type MomentInput = Moment | Date | string | number | (number | string)[] | MomentInputObject | void; // null | undefined
   type DurationInputArg1 = Duration | number | string | FromTo | DurationInputObject | void; // null | undefined
   type DurationInputArg2 = unitOfTime.DurationConstructor;
-  type LocaleSpecifier = string | Moment | Duration | string[] | boolean;
+  type LocaleSpecifier = string | Moment | Duration | string[];
 
   interface MomentCreationData {
-    input: MomentInput;
-    format?: MomentFormatSpecification;
+    input: string;
+    format: string;
     locale: Locale;
     isUTC: boolean;
-    strict?: boolean;
+    strict: boolean;
   }
 
-  interface Moment extends Object {
+  interface Moment {
     format(format?: string): string;
 
     startOf(unitOfTime: unitOfTime.StartOf): Moment;
@@ -542,7 +534,7 @@ declare namespace moment {
 
     toArray(): number[];
     toDate(): Date;
-    toISOString(keepOffset?: boolean): string;
+    toISOString(): string;
     inspect(): string;
     toJSON(): string;
     unix(): number;
@@ -555,7 +547,7 @@ declare namespace moment {
     zone(b: number|string): Moment;
     utcOffset(): number;
     utcOffset(b: number|string, keepLocalTime?: boolean): Moment;
-    isUtcOffset(): boolean;
+    isUTCOffset(): boolean;
     daysInMonth(): number;
     isDST(): boolean;
 
@@ -708,7 +700,6 @@ declare namespace moment {
    * Constant used to enable explicit ISO_8601 format parsing.
    */
   export var ISO_8601: MomentBuiltinFormat;
-  export var RFC_2822: MomentBuiltinFormat;
 
   export var defaultFormat: string;
   export var defaultFormatUtc: string;
